@@ -3,7 +3,7 @@
 #include <string.h>
 #include "sha256.h"
 
-#define bigend_affix_length // 以最大段方式放置长度
+#define bigend_affix_length // 浠ユ渶澶х鏂瑰紡鏀剧疆闀垮害
 
 const uint64_t chunk_bits = 512;
 const uint64_t chunk_size = 512 / 8 * sizeof(uint8_t);
@@ -61,7 +61,7 @@ static inline uint32_t maj(uint32_t x, uint32_t y, uint32_t z)
 }
 
 
-/* 循环右移 */
+/* 寰幆鍙崇Щ */
 static uint32_t s(uint32_t x, uint8_t n)
 {
     n %= 32;
