@@ -4,22 +4,7 @@
 
 const size_t MB = 1024 * 1024;
 
-#define put_hex(x)              \
-{                               \
-    if(0 <= (x) && (x) <= 9)    \
-        putchar((x) + '0');     \
-    else                        \
-        putchar((x) + 'a' - 10);\
-}
-
-static void hex_print_byte(unsigned char x)
-{
-    unsigned char high_part = (x & 0xf0) >> 4;
-    unsigned char low_part = x & 0xf;
-
-    put_hex(high_part);
-    put_hex(low_part);
-}
+void hex_print_byte(unsigned char x);
 
 
 void print_sha256_digesthex(FILE* fp)
@@ -31,13 +16,20 @@ void print_sha256_digesthex(FILE* fp)
     sha256_context* context = new_context();
 
     while(read = fread(input_buffer, sizeof(char), 2 * MB, fp))
+    {
+        printf("read = %llu\n", read);
         update(context, input_buffer, read);
+    }
 
     digest(context);
     get_digest(context, digest_array);
 
     for(i = 0; i < 32; i++)
+    {
+        if(i % 4 == 0)
+            putchar(',');
         hex_print_byte(digest_array[i]);
+    }
 
     destroy_context(context);
     free(digest_array);
@@ -53,7 +45,7 @@ int main(int argc, char** argv)
 //        return 0;
 //    }
 
-    char* filename = "F:\\sha256\\sha256\\temp_sha.txt";
+    char* filename = "test_files\\temp_sha.txt";
 
     // FILE* fp = fopen(argv[1], "rb");
     FILE* fp = fopen(filename, "rb");

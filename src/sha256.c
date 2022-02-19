@@ -5,8 +5,9 @@
 
 #define bigend_affix_length // 以最大端方式放置长度
 
-const uint64_t chunk_bits = 512;
-const uint64_t chunk_size = 512 / 8 * sizeof(uint8_t);
+const size_t chunk_bits = 512;
+const size_t chunk_size = 512 / 8 * sizeof(uint8_t);
+const size_t hash_size = 8 * sizeof(uint32_t);
 
 const uint32_t origin_k_array[8] = {
     0x6a09e667,
@@ -39,16 +40,6 @@ const uint32_t k_array[64] = {
 };
 
 
-uint32_t mask_array[32];
-
-static void build_mask()
-{
-    int i;
-    for(i = 1; i < 32; i++)
-        mask_array[i] = (mask_array[i - 1] << 1) | 1;
-}
-
-
 static inline uint32_t ch(uint32_t x, uint32_t y, uint32_t z)
 {
     return (x & y) ^ ((~x) & z);
@@ -60,8 +51,34 @@ static inline uint32_t maj(uint32_t x, uint32_t y, uint32_t z)
     return (x & y) ^ (x & z) ^ (y & z);
 }
 
-
 /* 循环右移 */
+#ifdef __GNUC__
+static uint32_t s(uint32_t x, uint8_t n)
+{
+    uint32_t result;
+    __asm__
+    (
+        "movb %2, %%cl\n\t" \
+        "ror %%cl, %1\n\t" \
+        "movl %1, %0"
+        :"=r"(result)
+        :"r"(x), "r"(n)
+        :"%cl"
+    );
+    return result;
+}
+#else
+const uint32_t mask_array[32] = {
+    0x00000000u, 0x00000001u, 0x00000003u, 0x00000007u, 
+    0x0000000fu, 0x0000001fu, 0x0000003fu, 0x0000007fu,
+    0x000000ffu, 0x000001ffu, 0x000003ffu, 0x000007ffu,
+    0x00000fffu, 0x00001fffu, 0x00003fffu, 0x00007fffu,
+    0x0000ffffu, 0x0001ffffu, 0x0003ffffu, 0x0007ffffu,
+    0x000fffffu, 0x001fffffu, 0x003fffffu, 0x007fffffu,
+    0x00ffffffu, 0x01ffffffu, 0x03ffffffu, 0x07ffffffu,
+    0x0fffffffu, 0x1fffffffu, 0x3fffffffu, 0x7fffffffu
+};
+
 static uint32_t s(uint32_t x, uint8_t n)
 {
     n %= 32;
@@ -69,6 +86,7 @@ static uint32_t s(uint32_t x, uint8_t n)
 
     return ((x & mask) << (32 - n)) | ((x & ~mask) >> n);
 }
+#endif
 
 
 static inline uint32_t big_sigma_0(uint32_t x)
@@ -104,7 +122,8 @@ sha256_context* new_context()
 
     memcpy(context->hash_array, origin_k_array, sizeof(uint32_t) * 8);
 
-    build_mask();
+    // build_mask();    // don's need to build anymore
+                        // since mask_array is coded in hard-code
     return context;
 }
 
@@ -115,6 +134,13 @@ void destroy_context(sha256_context* context)
     free(context);
 }
 
+static void print_iteration_array(uint32_t* iteration_array)
+{
+    int i;
+    for(i = 0; i < 8; i++)
+        printf(", %c : %#0.8x" + (!i) * 2, 'a' + i, iteration_array[i]);
+    putchar('\n');
+}
 
 static void update_chunk(sha256_context* context)
 {
@@ -122,16 +148,25 @@ static void update_chunk(sha256_context* context)
      * The size of chunk
      * must be 64 Bytes
      */
+
+    enum iteration_index {
+        a, b, c, d, e, f, g, h
+    };
+
     int i;
     uint32_t    ch_value,
                 big_sigma_0_value,
                 big_sigma_1_value,
-                ma_value,
-                temp;
+                ma_value;
 
     uint32_t* h_array = context->hash_array;
+    uint32_t iteration_array[8], t1, t2;
+
     uint32_t w_array[64];
-    memcpy(w_array, context->buffer, chunk_size);
+    
+    memcpy(iteration_array, h_array, hash_size);    // make a, b, c, ..., h = h_array
+
+    memcpy(w_array, context->buffer, chunk_size);   // 8 lines since here is making w_array
     for(i = 16; i < 64; i++)
     {
         w_array[i] =  sigma_1(w_array[i - 2])
@@ -142,20 +177,28 @@ static void update_chunk(sha256_context* context)
 
     for(i = 0; i < 64; i++)
     {
-        ch_value = ch(h_array[4], h_array[5], h_array[6]);
-        big_sigma_0_value = big_sigma_0(h_array[0]);
-        big_sigma_1_value = big_sigma_1(h_array[4]);
-        ma_value = maj(h_array[0], h_array[1], h_array[2]);
+        t1 =      iteration_array[h] 
+                + big_sigma_1(iteration_array[e])
+                + ch(iteration_array[e], iteration_array[f], iteration_array[g])
+                + k_array[i] + w_array[i];
 
-        temp = h_array[7] + ch_value + w_array[i] + k_array[i] + big_sigma_1_value;
-        memmove(h_array + 1, h_array, 7 * sizeof(uint32_t));
-
-        h_array[4] += temp;
-        h_array[0] = temp + ma_value + big_sigma_0_value;
+        t2 =      big_sigma_0(iteration_array[a])
+                + maj(iteration_array[a], iteration_array[b], iteration_array[c]);
+        
+        // print_iteration_array(iteration_array);
+        memmove(iteration_array + 1, iteration_array, 7 * sizeof(uint32_t));
+        
+        iteration_array[e] += t1;
+        iteration_array[a] = t1 + t2;
+        // print_iteration_array(iteration_array);
     }
+
+    for(i = 0; i < 8; i++)
+        h_array[i] += iteration_array[i];
 
     context->buffer_size = 0;
 }
+
 
 
 void update(sha256_context* context, uint8_t* data, size_t data_size)
@@ -206,9 +249,27 @@ void update(sha256_context* context, uint8_t* data, size_t data_size)
     #define affix_length(chunk, length_address) memcpy(chunk + chunk_size, length_address, 8 * sizeof(uint8_t))
 #endif
 
+#define put_hex(x)              \
+{                               \
+    if(0 <= (x) && (x) <= 9)    \
+        putchar((x) + '0');     \
+    else                        \
+        putchar((x) + 'a' - 10);\
+}
+
+void hex_print_byte(unsigned char x)
+{
+    unsigned char high_part = (x & 0xf0) >> 4;
+    unsigned char low_part = x & 0xf;
+
+    put_hex(high_part);
+    put_hex(low_part);
+}
+
 void digest(sha256_context* context)
 {
-    printf("length = %u\n", (unsigned int)context->length);
+    printf("length = %llu\n", context->length);
+    printf("buffer_size = %llu\n", context->buffer_size);
 
     uint8_t* chunk = NULL;
     uint8_t* length_address = NULL;
@@ -223,11 +284,23 @@ void digest(sha256_context* context)
     if(context->buffer_size <= chunk_size - 1 - 8)  // enough space to affix tail and length
     {
         context->buffer[context->buffer_size] = 0x80;
-
         chunk = context->buffer;
         length_address = (uint8_t*)&(context->length);
 
+        for(int i = 0; i < 8; i++)
+            hex_print_byte(*(length_address + i));
+        putchar('\n');
+
         affix_length(chunk, length_address);
+        for(int i = 0; i < 8; i++)
+            hex_print_byte(*(chunk + chunk_size - 8 + i));
+        putchar('\n');
+        printf("buffer is\n");
+        for(int i = 0; i < 64; i++)
+            hex_print_byte(*(chunk + i));
+
+        putchar('\n');
+        
         update_chunk(context);
     }
     else if(context->buffer_size <= chunk_size - 1) // enough space to affix tail only

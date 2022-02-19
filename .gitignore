@@ -3,3 +3,6 @@ bin/
 obj/
 
 test_files/
+
+test.c
+a.exe
