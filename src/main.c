@@ -25,11 +25,7 @@ void print_sha256_digesthex(FILE* fp)
     get_digest(context, digest_array);
 
     for(i = 0; i < 32; i++)
-    {
-        if(i % 4 == 0)
-            putchar(',');
         hex_print_byte(digest_array[i]);
-    }
 
     destroy_context(context);
     free(digest_array);
@@ -45,8 +41,8 @@ int main(int argc, char** argv)
 //        return 0;
 //    }
 
-    // char* filename = "test_files\\temp_sha.txt";
-    char* filename = "test_files\\abcd.txt";
+    char* filename = "test_files\\temp_sha.txt";
+    // char* filename = "test_files\\abcd.txt";
 
     // FILE* fp = fopen(argv[1], "rb");
     FILE* fp = fopen(filename, "rb");
