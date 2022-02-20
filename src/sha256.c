@@ -3,10 +3,8 @@
 #include <string.h>
 #include "sha256.h"
 #include "logic_functions.h"
+#include "to_bigend.h"
 
-#define bigend_affix_length // 以最大端方式放置长度
-
-const size_t chunk_bits = 512;
 const size_t chunk_size = 512 / 8 * sizeof(uint8_t);
 const size_t hash_size = 8 * sizeof(uint32_t);
 
@@ -41,7 +39,6 @@ const uint32_t k_array[64] = {
 };
 
 
-
 sha256_context* new_context()
 {
     sha256_context* context = malloc(sizeof(sha256_context));
@@ -61,30 +58,6 @@ void destroy_context(sha256_context* context)
 {
     free(context->buffer);
     free(context);
-}
-
-static void print_iteration_array(uint32_t* iteration_array)
-{
-    int i;
-    for(i = 0; i < 8; i++)
-        printf(", %c : %#0.8x" + (!i) * 2, 'a' + i, iteration_array[i]);
-    putchar('\n');
-}
-
-
-static void to_big_end(uint32_t* array, uint32_t element_count)
-{
-    uint32_t i;
-    uint32_t temp;
-
-    for(i = 0; i < element_count; i++)
-    {
-        temp = array[i];
-        array[i] =  ((temp & 0xffu) << 24)
-                  | ((temp & 0xff00u) << 8)
-                  | ((temp & 0xff0000u) >> 8)
-                  | ((temp & 0xff000000u) >> 24);
-    }
 }
 
 
@@ -107,8 +80,10 @@ static void update_chunk(sha256_context* context)
     
     memcpy(iteration_array, h_array, hash_size);    // make a, b, c, ..., h = h_array
 
-    memcpy(w_array, context->buffer, chunk_size);   // 8 lines since here is making w_array
-    to_big_end(w_array, 16);
+    memcpy(w_array, context->buffer, chunk_size);   // 11 lines since here is making w_array
+    for(i = 0; i < 16; i++)
+        w_array[i] = to_bigend_32(w_array[i]);
+
     for(i = 16; i < 64; i++)
     {
         w_array[i] =  sigma_1(w_array[i - 2])
@@ -142,7 +117,6 @@ static void update_chunk(sha256_context* context)
 }
 
 
-
 void update(sha256_context* context, uint8_t* data, size_t data_size)
 {
     context->length += data_size * 8;
@@ -150,7 +124,6 @@ void update(sha256_context* context, uint8_t* data, size_t data_size)
 
     while(data_size > want_size)
     {
-        printf("want_size = %u\n", (unsigned int)want_size);
         memcpy
         (
             context->buffer + context->buffer_size,
@@ -175,44 +148,21 @@ void update(sha256_context* context, uint8_t* data, size_t data_size)
 }
 
 
-#ifdef bigend_affix_length
-    #define affix_length(chunk, length_address)         \
-    {                                                   \
-        chunk[chunk_size - 1] = *(length_address + 0);  \
-        chunk[chunk_size - 2] = *(length_address + 1);  \
-        chunk[chunk_size - 3] = *(length_address + 2);  \
-        chunk[chunk_size - 4] = *(length_address + 3);  \
-        chunk[chunk_size - 5] = *(length_address + 4);  \
-        chunk[chunk_size - 6] = *(length_address + 5);  \
-        chunk[chunk_size - 7] = *(length_address + 6);  \
-        chunk[chunk_size - 8] = *(length_address + 7);  \
-    }
-#else
-    #define affix_length(chunk, length_address) memcpy(chunk + chunk_size - 8, length_address, 8 * sizeof(uint8_t))
-#endif
-
-#define put_hex(x)              \
-{                               \
-    if(0 <= (x) && (x) <= 9)    \
-        putchar((x) + '0');     \
-    else                        \
-        putchar((x) + 'a' - 10);\
+#define affix_length(chunk, length_address)         \
+{                                                   \
+    chunk[chunk_size - 1] = *(length_address + 0);  \
+    chunk[chunk_size - 2] = *(length_address + 1);  \
+    chunk[chunk_size - 3] = *(length_address + 2);  \
+    chunk[chunk_size - 4] = *(length_address + 3);  \
+    chunk[chunk_size - 5] = *(length_address + 4);  \
+    chunk[chunk_size - 6] = *(length_address + 5);  \
+    chunk[chunk_size - 7] = *(length_address + 6);  \
+    chunk[chunk_size - 8] = *(length_address + 7);  \
 }
 
-void hex_print_byte(unsigned char x)
-{
-    unsigned char high_part = (x & 0xf0) >> 4;
-    unsigned char low_part = x & 0xf;
-
-    put_hex(high_part);
-    put_hex(low_part);
-}
 
 void digest(sha256_context* context)
 {
-    printf("length = %llu\n", context->length);
-    printf("buffer_size = %llu\n", context->buffer_size);
-
     uint8_t* chunk = NULL;
     uint8_t* length_address = NULL;
 
@@ -250,10 +200,6 @@ void digest(sha256_context* context)
 void get_digest(sha256_context* context, uint8_t* digest_array)
 {
     int i;
-    putchar('\n');
-    print_iteration_array(context->hash_array);
-    putchar('\n');
-
     for(i = 0; i < 32; i++)
         digest_array[i] = context->hash_array[i >> 2] >> (8 * (3 - (i & 3)));
 }

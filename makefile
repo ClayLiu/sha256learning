@@ -10,7 +10,8 @@ OBJS = $(patsubst %.c, $(OBJ)/%.o, $(notdir $(SRCS)))
 TARGET_NAME = main
 TARGET_PATH = $(BIN)/$(TARGET_NAME)
 
-CFLAGS = -g -std=c11 -I $(INC)
+# CFLAGS = -g -std=c11 -I $(INC)	# debug mode
+CFLAGS = -std=c11 -I $(INC)			# release mode
 
 $(TARGET_PATH):$(OBJS)
 	gcc $^ -o $@

@@ -4,8 +4,22 @@
 
 const size_t MB = 1024 * 1024;
 
-void hex_print_byte(unsigned char x);
+#define put_hex(x)              \
+{                               \
+    if(0 <= (x) && (x) <= 9)    \
+        putchar((x) + '0');     \
+    else                        \
+        putchar((x) + 'a' - 10);\
+}
 
+void hex_print_byte(unsigned char x)
+{
+    unsigned char high_part = (x & 0xf0) >> 4;
+    unsigned char low_part = x & 0xf;
+
+    put_hex(high_part);
+    put_hex(low_part);
+}
 
 void print_sha256_digesthex(FILE* fp)
 {
@@ -16,10 +30,7 @@ void print_sha256_digesthex(FILE* fp)
     sha256_context* context = new_context();
 
     while(read = fread(input_buffer, sizeof(char), 2 * MB, fp))
-    {
-        printf("read = %llu\n", read);
         update(context, input_buffer, read);
-    }
 
     digest(context);
     get_digest(context, digest_array);
