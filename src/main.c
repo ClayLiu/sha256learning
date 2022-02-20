@@ -45,7 +45,8 @@ int main(int argc, char** argv)
 //        return 0;
 //    }
 
-    char* filename = "test_files\\temp_sha.txt";
+    // char* filename = "test_files\\temp_sha.txt";
+    char* filename = "test_files\\abcd.txt";
 
     // FILE* fp = fopen(argv[1], "rb");
     FILE* fp = fopen(filename, "rb");
