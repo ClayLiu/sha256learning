@@ -46,28 +46,14 @@ void print_sha256_digesthex(FILE* fp)
 
 int main(int argc, char** argv)
 {
-//    if(argc == 1)
-//    {
-//        printf("No file is inputing.");
-//        return 0;
-//    }
+    if(argc == 1)
+    {
+       printf("No file is inputing.");
+       return 0;
+    }
 
-    char* filename = "test_files\\temp_sha.txt";
-    // char* filename = "test_files\\abcd.txt";
-
-    // FILE* fp = fopen(argv[1], "rb");
-    FILE* fp = fopen(filename, "rb");
+    FILE* fp = fopen(argv[1], "rb");
     print_sha256_digesthex(fp);
-//    char t = 0;
-//    hex_print_byte(t);
-//    putchar('\n');
-//
-//    fread(&t, sizeof(char), 1, fp);
-//    putchar(t);
-//    putchar('\n');
-//    printf("dec = %d\n", t);
-//    hex_print_byte(t);
-
     fclose(fp);
     return 0;
 }
